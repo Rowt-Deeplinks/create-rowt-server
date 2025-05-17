@@ -36,6 +36,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Rowt-Deeplinks/create-rowt-server"
+    "url": "https://github.com/Rowt-Deeplinks/create-rowt-server",
+    "homepage":"https://docs.rowt.app/#/self-host/"
   }
 }
