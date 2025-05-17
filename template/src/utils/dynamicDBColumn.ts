@@ -1,4 +1,4 @@
-import { Column, ColumnOptions } from 'typeorm';
+import { Column, ColumnOptions, Check } from 'typeorm';
 
 /**
  * Checks if an object is empty (has no own properties)
@@ -25,13 +25,15 @@ export function DynamicDBColumn(options: ColumnOptions): PropertyDecorator {
       options.type = 'datetime';
 
       // SQLite has different syntax for default timestamps
+      // For SQLite, we can't use function-based defaults, but it has CURRENT_TIMESTAMP as a keyword
       if (
         options.default &&
         (options.default === 'CURRENT_TIMESTAMP' ||
           (typeof options.default === 'function' &&
             options.default.toString().includes('CURRENT_TIMESTAMP')))
       ) {
-        options.default = "DATETIME('now')";
+        // SQLite supports CURRENT_TIMESTAMP as a literal
+        options.default = 'CURRENT_TIMESTAMP';
       }
     }
 
@@ -49,6 +51,18 @@ export function DynamicDBColumn(options: ColumnOptions): PropertyDecorator {
           // For other objects, use JSON stringified version
           options.default = JSON.stringify(options.default);
         }
+      }
+    }
+
+    // For SQLite, convert function defaults to string literals
+    if (typeof options.default === 'function') {
+      const defaultStr = options.default.toString();
+      if (defaultStr.includes('CURRENT_TIMESTAMP')) {
+        options.default = 'CURRENT_TIMESTAMP';
+      } else {
+        // For other function defaults, just use a sensible default
+        console.warn(`Function default not supported in SQLite: ${defaultStr}`);
+        options.default = null;
       }
     }
   }
