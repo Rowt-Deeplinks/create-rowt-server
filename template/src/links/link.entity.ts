@@ -47,10 +47,10 @@ export class LinkEntity {
   @Column({ type: 'varchar', length: 2048, nullable: true }) // Optional
   fallbackUrlOverride?: string;
 
-  @Column({ type: 'jsonb', default: {} }) // JSONB with default value
+  @DynamicDBColumn({ type: 'jsonb', default: {} }) // JSONB with default value
   additionalMetadata?: Record<string, any>;
 
-  @Column({ type: 'jsonb', default: {} }) // JSONB with default value
+  @DynamicDBColumn({ type: 'jsonb', default: {} }) // JSONB with default value
   properties: Record<string, any>;
 
   @Column({ type: 'int', default: 0 }) // Integer with default value
