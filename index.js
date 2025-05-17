@@ -3,7 +3,6 @@ const fs = require('fs-extra');
 const path = require('path');
 const prompts = require('prompts');
 const crypto = require('crypto');
-const glob = require('glob');
 
 // Function to generate a secure random string
 function generateSecureRandomString(length = 32) {
@@ -35,83 +34,6 @@ function generateSecurePassword(length = 16) {
   
   // Shuffle the password characters
   return password.split('').sort(() => 0.5 - Math.random()).join('');
-}
-
-// Function to update entity files for SQLite compatibility
-function updateEntityFilesForSQLite(targetDir) {
-  // Find all entity files in the project
-  const entityFiles = glob.sync(path.join(targetDir, 'src', '**', '*.entity.ts'));
-  
-  console.log(`Found ${entityFiles.length} entity files to update for SQLite compatibility`);
-  
-  // Process each entity file
-  entityFiles.forEach(filePath => {
-    console.log(`Adapting entity file: ${path.basename(filePath)}`);
-    
-    let content = fs.readFileSync(filePath, 'utf8');
-    
-    // Track if this file was modified
-    let wasModified = false;
-    
-    // Replace timestamp types with datetime for compatibility
-    if (content.includes("type: 'timestamp'") || content.includes('type: "timestamp"')) {
-      content = content.replace(
-        /type: ['"]timestamp['"]/g, 
-        "type: 'datetime'"
-      );
-      wasModified = true;
-    }
-    
-    // Replace JSONB with JSON for SQLite
-    if (content.includes("type: 'jsonb'") || content.includes('type: "jsonb"')) {
-      content = content.replace(
-        /type: ['"]jsonb['"]/g, 
-        "type: 'simple-json'"
-      );
-      wasModified = true;
-    }
-    
-    // Replace pg-specific functions with SQLite compatible ones
-    if (content.includes('default: () => "CURRENT_TIMESTAMP"') || 
-        content.includes("default: () => 'CURRENT_TIMESTAMP'")) {
-      content = content.replace(
-        /default: \(\) => ['"]CURRENT_TIMESTAMP['"]/g, 
-        "default: () => 'CURRENT_TIMESTAMP'"
-      );
-      wasModified = true;
-    }
-    
-    // Fix check constraints - not supported in SQLite
-    if (content.includes('@Check(')) {
-      content = content.replace(
-        /@Check\([^)]+\)/g,
-        ''
-      );
-      wasModified = true;
-    }
-    
-    // Replace PostgreSQL-specific UUID generation with SQLite-compatible approach
-    if (content.includes('uuid_generate_v4()')) {
-      content = content.replace(
-        /default: \(\) => ['"]uuid_generate_v4\(\)['"]/g,
-        "default: () => 'uuid-placeholder'"
-      );
-      wasModified = true;
-    }
-
-    // Fix any other PostgreSQL-specific functions
-    if (content.includes('pg_column_size')) {
-      content = content.replace(
-        /pg_column_size\([^)]+\)/g,
-        '10240' // Replace with a reasonable fixed size
-      );
-      wasModified = true;
-    }
-    
-    if (wasModified) {
-      fs.writeFileSync(filePath, content);
-    }
-  });
 }
 
 async function init() {
@@ -168,18 +90,6 @@ async function init() {
   // Create project
   console.log(`\nCreating ${projectName}...`);
   fs.copySync(path.join(__dirname, 'template'), targetDir);
-
-  // If SQLite is selected, update entity files for compatibility
-  if (config.databaseType === 'sqlite') {
-    console.log('Adapting entities for SQLite compatibility...');
-    updateEntityFilesForSQLite(targetDir);
-  }
-
-  // Copy and update .env
-  fs.moveSync(
-    path.join(targetDir, '.env.example'),
-    path.join(targetDir, '.env'),
-  );
 
   // Create properly prefixed .env file with secure random values
   const envContent = `# Rowt Server Configuration
@@ -260,20 +170,19 @@ coverage/
   const packageJson = fs.readJsonSync(packagePath);
   packageJson.name = projectName;
   
-  // Conditionally add SQLite dependency if selected
+  // Conditionally add database dependency
   if (config.databaseType === 'sqlite') {
     packageJson.dependencies.sqlite3 = "^5.1.7";
   } else {
-    // For postgres, ensure pg is included
+    // Ensure pg is included for PostgreSQL
     packageJson.dependencies.pg = "^8.14.0";
   }
   
-  // Add glob dependency for file searching
-  packageJson.dependencies.glob = "^8.1.0";
-  
   fs.writeJsonSync(packagePath, packageJson, { spaces: 2 });
 
-  
+  console.log('\n✅ Success!');
+  console.log(`\ncd ${projectName}`);
+  console.log('npm install');
   
   if (config.databaseType === 'postgres') {
     console.log('Update ROWT_DATABASE_URL in .env with your database connection string');
@@ -281,9 +190,10 @@ coverage/
     console.log('SQLite database will be created automatically');
   }
   
+  console.log('npm run build');
+  console.log('npm run start\n');
   
   // Display security credentials
-  console.log('Generated unique JWT_SECRET for your server');
   console.log('---------------------------------------');
   console.log('IMPORTANT: SAVE THESE CREDENTIALS');
   console.log('---------------------------------------');
@@ -293,12 +203,6 @@ coverage/
   console.log('---------------------------------------');
   console.log('These credentials are stored in your .env file');
   console.log('---------------------------------------\n');
-  
-  console.log('\n✅ Success!');
-  console.log(`\ncd ${projectName}`);
-  console.log('npm install');
-  console.log('npm run build');
-  console.log('npm run start:dev\n');
   
   console.log(`View the documentation at https://docs.rowt.app`);
 }
