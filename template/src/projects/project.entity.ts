@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { LinkEntity } from 'src/links/link.entity';
 import { UserEntity } from 'src/users/user.entity';
 import {
@@ -7,6 +8,7 @@ import {
   OneToMany,
   ManyToOne,
   JoinColumn,
+  BeforeInsert,
 } from 'typeorm';
 
 @Entity('projects')
@@ -14,7 +16,7 @@ export class ProjectEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'uuid', default: () => 'uuid_generate_v4()' })
+  @Column({ type: 'uuid' })
   apiKey: string;
 
   @Column()
@@ -47,4 +49,11 @@ export class ProjectEntity {
 
   @OneToMany(() => LinkEntity, (link) => link.project) // Define the OneToMany relationship
   links: LinkEntity[]; // Array of links associated with the project
+
+  @BeforeInsert()
+  generateApiKey() {
+    if (!this.apiKey) {
+      this.apiKey = randomUUID();
+    }
+  }
 }

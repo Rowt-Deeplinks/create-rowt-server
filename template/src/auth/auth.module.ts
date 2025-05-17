@@ -17,6 +17,7 @@ import { RefreshTokenEntity } from './tokens/entities/refresh-token.entity';
 import { BlacklistedTokenEntity } from './tokens/entities/blacklisted-token.entity';
 import { TokenCleanupService } from 'src/tokenCleanup/tokenCleanup.service';
 import { ScheduleModule } from '@nestjs/schedule';
+import { UserEntity } from 'src/users/user.entity';
 
 @Module({
   imports: [
@@ -28,7 +29,7 @@ import { ScheduleModule } from '@nestjs/schedule';
       secret: process.env.ROWT_JWT_SECRET as string,
       signOptions: { expiresIn: '1h' },
     }),
-    TypeOrmModule.forFeature([RefreshTokenEntity, BlacklistedTokenEntity]),
+    TypeOrmModule.forFeature([RefreshTokenEntity, BlacklistedTokenEntity, UserEntity]),
   ],
   controllers: [AuthController],
   providers: [
