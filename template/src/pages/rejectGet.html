@@ -1,0 +1,78 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Method Not Allowed</title>
+    <link rel="icon" href="/static/rowtfavicon.png" type="image/x-icon" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        padding: 20px;
+        margin: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background-color: #f9f9f9;
+      }
+      h1 {
+        text-align: center;
+      }
+      .container {
+        max-width: 60ch;
+        width: 100%;
+        text-align: center;
+        background: #fff;
+        padding: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border-radius: 8px;
+      }
+      pre {
+        text-align: left;
+        background: #f4f4f4;
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
+      }
+      a {
+        color: #007bff;
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Method Not Allowed</h1>
+      <p>GET request not allowed at this endpoint</p>
+      <h2>To create a new link:</h2>
+      <p>
+        Send a POST request to <a href="/link">/link</a> with the following JSON
+        body:
+      </p>
+      <pre>
+                <code>
+{
+    "projectId": "example",
+    "apiKey": "your-api-key",
+    "url": "https://example.com",
+    "title": "Example Link",
+    "description": "This is an example link",
+    "imageUrl": "https://example.com/image.jpg"
+}
+                </code>
+            </pre>
+      <p>
+        Don't have an API Key?
+        <a href="https://app.rowt.app/">Sign up here</a>.
+      </p>
+      <p>
+        For more information, visit the
+        <a href="https://docs.rowt.app/">documentation</a>.
+      </p>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,135 @@
+<!doctype html>
+<html>
+  <head>
+    <meta property="og:title" content="${metadata.title}" />
+    <meta property="og:description" content="${metadata.description}" />
+    <meta property="og:image" content="${metadata.imageUrl}" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${metadata.title}" />
+    <meta name="twitter:description" content="${metadata.description}" />
+    <meta name="twitter:image" content="${metadata.imageUrl}" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${metadata.title}</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        background-color: #f5f5f5;
+      }
+      .loading-container {
+        text-align: center;
+        padding: 20px;
+        border-radius: 8px;
+        background-color: white;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        max-width: 90%;
+      }
+      .spinner {
+        border: 4px solid rgba(0, 0, 0, 0.1);
+        border-radius: 50%;
+        border-top: 4px solid #3498db;
+        width: 40px;
+        height: 40px;
+        margin: 0 auto 20px;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="loading-container">
+      <div class="spinner"></div>
+      <div id="status">Opening app...</div>
+    </div>
+
+    <script>
+      // Configuration
+      const APP_URL = '${finalLink}';
+      const FALLBACK_URL = '${fallbackUrl}';
+      const SHORT_TIMEOUT = 800; // Time to wait for quick detection
+      const LONG_TIMEOUT = 2000; // Max time to wait before fallback
+
+      // Platform detection
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isAndroid = /Android/.test(navigator.userAgent);
+
+      // Variables for tracking state
+      let appOpened = false;
+      let pageHidden = false;
+      let shortTimeoutElapsed = false;
+
+      // Helper function to go to fallback
+      function goToFallback() {
+        if (!appOpened) {
+          document.getElementById('status').innerText =
+            'Redirecting to website...';
+          window.location.href = FALLBACK_URL;
+        }
+      }
+
+      // Listen for page visibility changes (indicates app might have opened)
+      document.addEventListener('visibilitychange', function () {
+        if (document.hidden) {
+          pageHidden = true;
+          // The page became hidden - likely the app opened
+          appOpened = true;
+        }
+      });
+
+      // Handle iOS Universal Links specifically
+      if (isIOS) {
+        // Try Universal Link first if available
+        const universalUrl = APP_URL;
+        window.location.href = universalUrl;
+      } else {
+        // For other platforms (including Android)
+        window.location.href = APP_URL;
+      }
+
+      // First short timeout - if page isn't hidden by now on iOS/Android,
+      // app may not be installed
+      setTimeout(function () {
+        shortTimeoutElapsed = true;
+        if (!pageHidden && (isIOS || isAndroid)) {
+          goToFallback();
+        }
+      }, SHORT_TIMEOUT);
+
+      // Final fallback - if all else fails, go to fallback URL
+      setTimeout(function () {
+        goToFallback();
+      }, LONG_TIMEOUT);
+
+      // Log interaction
+      fetch(
+        '${request.protocol}://${request.headers.host}/api/interaction/log',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            shortCode: '${shortCode}',
+            userAgent: "${request.headers['user-agent']}",
+            referer:
+              "${request.headers.referer || request.headers.referrer || request.headers.origin || ''}",
+            country: "${country || ''}",
+          }),
+          // Using keepalive to ensure the request completes even if page navigates away
+          keepalive: true,
+        },
+      ).catch((err) => console.error('Error logging interaction:', err));
+    </script>
+  </body>
+</html>

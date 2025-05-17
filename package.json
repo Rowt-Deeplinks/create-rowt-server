@@ -1,0 +1,41 @@
+{
+  "name": "create-rowt-server",
+  "version": "0.0.13",
+  "description": "Scaffold a Rowt Server API for Analytics and Deeplinks",
+  "bin": {
+    "create-rowt-server": "./index.js"
+  },
+  "files": [
+    "index.js",
+    "template"
+  ],
+  "dependencies": {
+    "fs-extra": "^11.0.0",
+    "prompts": "^2.4.2"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "keywords": [
+    "rowt",
+    "deeplink",
+    "deep links",
+    "server",
+    "template",
+    "scaffold",
+    "analytics",
+    "mobile",
+    "ios",
+    "android",
+    "react native",
+    "expo",
+    "nest",
+    "nestjs"
+  ],
+  "author": "Chris McCully",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tophercully/rowt-server.git"
+  }
+}
