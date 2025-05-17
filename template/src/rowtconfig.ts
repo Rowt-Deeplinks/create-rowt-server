@@ -1,6 +1,6 @@
 const RowtConfig = {
   // Tenant mode
-  tenant_mode: process.env.TENANT_MODE || 'single-tenant',
+  tenant_mode: process.env.ROWT_TENANT_MODE || 'single-tenant',
 
   // Cleanup
   cleanup_cron_expression: '0 2 * * *', // Run at 2 AM every day

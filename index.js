@@ -170,12 +170,16 @@ coverage/
   const packageJson = fs.readJsonSync(packagePath);
   packageJson.name = projectName;
   
-  // Conditionally add database dependency
+  // Add database dependency based on selection
   if (config.databaseType === 'sqlite') {
     packageJson.dependencies.sqlite3 = "^5.1.7";
+    // Remove PostgreSQL dependency if it exists
+    delete packageJson.dependencies.pg;
   } else {
-    // Ensure pg is included for PostgreSQL
+    // For postgres, ensure pg is included
     packageJson.dependencies.pg = "^8.14.0";
+    // Remove SQLite dependency if it exists
+    delete packageJson.dependencies.sqlite3;
   }
   
   fs.writeJsonSync(packagePath, packageJson, { spaces: 2 });

@@ -6,6 +6,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { LinkEntity } from './link.entity';
+import { DynamicDBColumn } from 'src/utils/dynamicDBColumn';
 
 @Entity('interactions') // Table name
 export class InteractionEntity {
@@ -32,6 +33,6 @@ export class InteractionEntity {
   @Column({ type: 'varchar', length: 255, nullable: true }) // Optional
   browser?: string;
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @DynamicDBColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   timestamp: Date;
 }
