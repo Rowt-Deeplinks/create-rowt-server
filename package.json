@@ -1,6 +1,6 @@
 {
   "name": "create-rowt-server",
-  "version": "0.0.24",
+  "version": "0.0.25",
   "description": "Scaffold a Rowt Server API for Analytics and Deeplinks",
   "bin": {
     "create-rowt-server": "./index.js"
@@ -37,6 +37,6 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/Rowt-Deeplinks/create-rowt-server",
-    "homepage":"https://docs.rowt.app/#/self-host/"
+    "homepage": "https://docs.rowt.app/#/self-host/"
   }
 }
