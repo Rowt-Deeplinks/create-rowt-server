@@ -26,6 +26,8 @@ export class AuthRepositoryAdapter implements AuthRepositoryPort {
     private refreshTokenRepository: Repository<RefreshTokenEntity>,
     @InjectRepository(BlacklistedTokenEntity)
     private blacklistedTokenRepository: Repository<BlacklistedTokenEntity>,
+    @InjectRepository(UserEntity)
+    private userRepository: Repository<UserEntity>,
   ) {
     // Hash admin password on service startup in single-tenant mode
     this.initializeSingleTenantPassword();
@@ -34,15 +36,14 @@ export class AuthRepositoryAdapter implements AuthRepositoryPort {
   // Store the hashed admin password
   private hashedAdminPassword: string | null = null;
 
-  /**
-   * Initialize the hashed admin password for single-tenant mode
-   */
   private async initializeSingleTenantPassword(): Promise<void> {
     if (RowtConfig.tenant_mode === 'single-tenant') {
+      const adminEmail = process.env.ROWT_ADMIN_EMAIL;
       const adminPassword = process.env.ROWT_ADMIN_PASSWORD;
-      if (!adminPassword) {
+
+      if (!adminEmail || !adminPassword) {
         console.error(
-          'WARNING: ROWT_ADMIN_PASSWORD environment variable not set in single-tenant mode',
+          'WARNING: ROWT_ADMIN_PASSWORD or ROWT_ADMIN_EMAIL environment variable not set in single-tenant mode',
         );
         return;
       }
@@ -52,8 +53,31 @@ export class AuthRepositoryAdapter implements AuthRepositoryPort {
         const saltRounds = 10;
         this.hashedAdminPassword = await bcrypt.hash(adminPassword, saltRounds);
         console.log('Single-tenant admin password securely hashed');
+
+        // Create or update admin user in database
+        try {
+          // Try to find the user
+          const existingUser = await this.usersService.findByEmail(adminEmail);
+
+          // Update the password if user exists
+          if (existingUser) {
+            existingUser.passwordHash = this.hashedAdminPassword;
+            await this.usersService.updateUser(existingUser);
+            console.log('Synced admin user password in database');
+          }
+        } catch (error) {
+          // User doesn't exist, create it
+          const createUserDto = {
+            email: adminEmail,
+            password: adminPassword, // usersService will hash this again
+            role: 'admin',
+          };
+
+          await this.usersService.createUser(createUserDto);
+          console.log('Created admin user in database');
+        }
       } catch (error) {
-        console.error('Failed to hash admin password:', error);
+        console.error('Failed to setup admin user:', error);
       }
     }
   }
@@ -77,12 +101,22 @@ export class AuthRepositoryAdapter implements AuthRepositoryPort {
         }
 
         userInDb = {
-          id: Number(process.env.ROWT_ADMIN_UUID) as number,
+          id: process.env.ROWT_ADMIN_UUID as unknown as number,
           email: process.env.ROWT_ADMIN_EMAIL as string,
           passwordHash: this.hashedAdminPassword,
           role: 'admin',
           emailVerified: true,
         };
+
+        console.log(
+          'Validating credentials for single-tenant mode',
+          'email:',
+          email,
+          'password:',
+          pass,
+        );
+        console.log(`User in DB:`, userInDb);
+        console.log(`Expected hashed password: ${this.hashedAdminPassword}`);
 
         const isMatch = await bcrypt.compare(pass, this.hashedAdminPassword);
         if (isMatch) {
@@ -112,9 +146,26 @@ export class AuthRepositoryAdapter implements AuthRepositoryPort {
 
   async login(user: LoginDTO): Promise<LoginResponseDTO> {
     try {
-      const userEntity = await this.usersService.findByEmail(user.email);
-      if (!userEntity) {
-        throw new NotFoundException('User not found');
+      let userEntity;
+
+      if (
+        RowtConfig.tenant_mode === 'single-tenant' &&
+        user.email === process.env.ROWT_ADMIN_EMAIL
+      ) {
+        // For single-tenant, get the admin user that should now exist in DB
+        try {
+          userEntity = await this.usersService.findByEmail(user.email);
+        } catch (error) {
+          throw new Error(
+            'Admin user not found in database. Server initialization may have failed.',
+          );
+        }
+      } else {
+        // Regular user lookup for multi-tenant mode
+        userEntity = await this.usersService.findByEmail(user.email);
+        if (!userEntity) {
+          throw new NotFoundException('User not found');
+        }
       }
 
       const tokens = await this.generateNewTokens(userEntity);
