@@ -1,6 +1,6 @@
 {
   "name": "create-rowt-server",
-  "version": "0.0.19",
+  "version": "0.0.20",
   "description": "Scaffold a Rowt Server API for Analytics and Deeplinks",
   "bin": {
     "create-rowt-server": "./index.js"
