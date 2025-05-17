@@ -39,10 +39,10 @@ export class AuthRepositoryAdapter implements AuthRepositoryPort {
    */
   private async initializeSingleTenantPassword(): Promise<void> {
     if (RowtConfig.tenant_mode === 'single-tenant') {
-      const adminPassword = process.env.ADMIN_PASSWORD;
+      const adminPassword = process.env.ROWT_ADMIN_PASSWORD;
       if (!adminPassword) {
         console.error(
-          'WARNING: ADMIN_PASSWORD environment variable not set in single-tenant mode',
+          'WARNING: ROWT_ADMIN_PASSWORD environment variable not set in single-tenant mode',
         );
         return;
       }
@@ -65,7 +65,7 @@ export class AuthRepositoryAdapter implements AuthRepositoryPort {
         // Check if we have a hashed password
         if (!this.hashedAdminPassword) {
           // Hash it on first use if not done at startup
-          const adminPassword = process.env.ADMIN_PASSWORD;
+          const adminPassword = process.env.ROWT_ADMIN_PASSWORD;
           if (!adminPassword) {
             throw new BadRequestException('Admin password not configured');
           }
@@ -77,8 +77,8 @@ export class AuthRepositoryAdapter implements AuthRepositoryPort {
         }
 
         userInDb = {
-          id: Number(process.env.ADMIN_UUID) as number,
-          email: process.env.ADMIN_EMAIL as string,
+          id: Number(process.env.ROWT_ADMIN_UUID) as number,
+          email: process.env.ROWT_ADMIN_EMAIL as string,
           passwordHash: this.hashedAdminPassword,
           role: 'admin',
           emailVerified: true,
