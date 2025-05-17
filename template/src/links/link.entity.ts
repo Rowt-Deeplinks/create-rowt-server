@@ -14,17 +14,14 @@ import RowtConfig from 'src/rowtconfig';
 import { ProjectEntity } from 'src/projects/project.entity';
 import { randomUUID } from 'crypto';
 import { DynamicDBColumn } from 'src/utils/dynamicDBColumn';
+import { DynamicDBCheck } from 'src/utils/dynamicDBDecorator';
 
 @Entity('links') // Table name
-@Check(
-  process.env.ROWT_DB_TYPE == 'postgres'
-    ? `"additional_metadata" IS NULL OR pg_column_size("additional_metadata") <= ${RowtConfig.max_jsonb_size}`
-    : '',
+@DynamicDBCheck(
+  `"additional_metadata" IS NULL OR pg_column_size("additional_metadata") <= ${RowtConfig.max_jsonb_size}`,
 )
-@Check(
-  process.env.ROWT_DB_TYPE == 'postgres'
-    ? `"properties" IS NULL OR pg_column_size("properties") <= ${RowtConfig.max_jsonb_size}`
-    : '',
+@DynamicDBCheck(
+  `"properties" IS NULL OR pg_column_size("properties") <= ${RowtConfig.max_jsonb_size}`,
 )
 export class LinkEntity {
   @PrimaryColumn({ type: 'varchar', length: 12 }) // Custom 12-character UID
