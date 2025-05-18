@@ -6,6 +6,8 @@
 .eslintrc
 .prettierrc
 .gitattributes
+.gitignore
+package-lock.json
 
 # Testing
 test/
