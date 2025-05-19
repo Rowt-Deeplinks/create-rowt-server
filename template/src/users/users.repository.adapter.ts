@@ -49,7 +49,7 @@ export class UserRepositoryAdapter implements UserRepositoryPort {
 
   async createUser(user: CreateUserDTO): Promise<UserEntity> {
     try {
-      console.log('Creating user: ', user);
+      console.log('Creating user with email: ', user.email);
       if (!user.password) {
         throw new Error('Password is required');
       }

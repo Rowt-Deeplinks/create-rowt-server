@@ -115,8 +115,6 @@ export class AuthRepositoryAdapter implements AuthRepositoryPort {
           'password:',
           pass,
         );
-        console.log(`User in DB:`, userInDb);
-        console.log(`Expected hashed password: ${this.hashedAdminPassword}`);
 
         const isMatch = await bcrypt.compare(pass, this.hashedAdminPassword);
         if (isMatch) {
