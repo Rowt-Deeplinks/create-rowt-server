@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Post, Req } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  NotFoundException,
+  Post,
+  Req,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { LinkService } from './link.service';
 import { CreateLinkDTO } from './dto/createLink.dto';
 import { Public } from 'src/auth/public.guard';
@@ -24,9 +33,10 @@ export class LinkController {
     @Body() createLinkRequest: CreateLinkDTO,
     @Req() req: Request,
   ) {
+    console.log('Creating link with request: ', createLinkRequest);
     try {
       if (!createLinkRequest) {
-        throw new Error('Invalid request - missing body');
+        throw new BadRequestException('Invalid request - missing body');
       }
 
       const authorized = await this.projectService.authorize(
@@ -34,24 +44,30 @@ export class LinkController {
         createLinkRequest.apiKey,
       );
       if (!authorized) {
-        throw new Error('Unauthorized');
+        throw new UnauthorizedException('Invalid API key or project ID');
       }
 
       if (!createLinkRequest.projectId) {
-        throw new Error('Missing projectId');
+        throw new BadRequestException('Missing projectId');
       }
 
       const shortcode = await this.linkService.createLink(createLinkRequest);
 
       if (!shortcode) {
-        throw new Error('Failed to create link');
+        throw new BadRequestException('Failed to create link');
       }
 
       const host = req.headers['host'];
 
       return `${host.includes('localhost') ? '' : 'https://'}${host}/${shortcode}`;
     } catch (error) {
-      return error.message;
+      if (
+        error instanceof BadRequestException ||
+        error instanceof UnauthorizedException
+      ) {
+        throw error;
+      }
+      throw new BadRequestException(error.message);
     }
   }
 
@@ -71,7 +87,7 @@ export class LinkController {
       }
       if (!projectId) {
         console.error('Missing projectId');
-        throw new Error('Missing projectId');
+        throw new BadRequestException('Missing projectId');
       }
       const links = await this.linkService.getLinksByProjectId(
         projectId,
@@ -81,14 +97,22 @@ export class LinkController {
       console.log('Links found: ', links);
 
       if (!links) {
-        throw new Error('No links found');
+        throw new NotFoundException('No links found for this project');
       }
 
       return links;
     } catch (error) {
       console.error(`Unable to get links from project: ${error.message}`);
 
-      return `Unable to get links from project: ${error.message}`;
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
+        throw error;
+      }
+      throw new BadRequestException(
+        `Unable to get links from project: ${error.message}`,
+      );
     }
   }
 }
