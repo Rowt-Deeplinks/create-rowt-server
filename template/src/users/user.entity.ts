@@ -1,5 +1,6 @@
 import { IsOptional } from 'class-validator';
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { DynamicDBColumn } from 'src/utils/dynamicDBColumn';
 
 @Entity('users')
 export class UserEntity {
@@ -25,4 +26,10 @@ export class UserEntity {
   @Column({ nullable: true })
   @IsOptional()
   customerId?: string;
+
+  @DynamicDBColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  createdAt: Date;
+
+  @DynamicDBColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP' })
+  updatedAt: Date;
 }

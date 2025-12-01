@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { LinkEntity } from 'src/links/link.entity';
 import { UserEntity } from 'src/users/user.entity';
+import { DynamicDBColumn } from 'src/utils/dynamicDBColumn';
 import {
   Entity,
   Column,
@@ -49,6 +50,12 @@ export class ProjectEntity {
 
   @OneToMany(() => LinkEntity, (link) => link.project) // Define the OneToMany relationship
   links: LinkEntity[]; // Array of links associated with the project
+
+  @DynamicDBColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  createdAt: Date;
+
+  @DynamicDBColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP' })
+  updatedAt: Date;
 
   @BeforeInsert()
   generateApiKey() {
