@@ -2,22 +2,17 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy package files and source code
-COPY package*.json ./
-COPY tsconfig*.json ./
-COPY nest-cli.json ./
+# Install build dependencies
+RUN apk add --no-cache python3 make g++
 
-# Install dependencies (skip postinstall for now)
-RUN npm ci --ignore-scripts
-
-# Copy rest of source code
+# Copy everything
 COPY . .
 
-# Build the application
-RUN npm run build
+# Install dependencies and build
+RUN npm ci && npm run build
 
 # Expose port
 EXPOSE 8080
 
-# Start the application
-CMD ["npm", "run", "start:prod"]
+# Start
+CMD ["node", "dist/main"]
