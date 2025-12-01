@@ -28,6 +28,10 @@ RUN npm ci --omit=dev && npm cache clean --force
 # Copy built app from builder
 COPY --from=builder /app/dist ./dist
 
+# Copy static assets needed at runtime
+COPY --from=builder /app/src/pages ./src/pages
+COPY --from=builder /app/public ./public
+
 # Use non-root user
 USER node
 
