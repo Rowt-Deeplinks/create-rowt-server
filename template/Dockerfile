@@ -16,8 +16,11 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+# Set timezone to UTC for consistent timestamp handling
+ENV TZ=UTC
+
 # Install runtime dependencies
-RUN apk add --no-cache dumb-init
+RUN apk add --no-cache dumb-init tzdata
 
 # Copy package files
 COPY package*.json ./
