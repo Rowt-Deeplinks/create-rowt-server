@@ -9,6 +9,7 @@ import { IS_PUBLIC_KEY } from '../public.guard';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { BlacklistedTokenEntity } from './entities/blacklisted-token.entity';
+import { logger } from 'src/utils/logger';
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
@@ -39,14 +40,12 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
         });
 
         if (result.affected && result.affected > 0) {
-          console.log(
-            `Cleaned up ${result.affected} expired blacklisted tokens`,
-          );
+          logger.info('Cleaned up expired blacklisted tokens', { count: result.affected });
         }
       }
     } catch (error) {
       // Log but don't throw - this shouldn't block authentication
-      console.error('Error cleaning up expired tokens:', error);
+      logger.error('Error cleaning up expired tokens', { error: error.message });
     }
   }
 
@@ -58,7 +57,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 
     // Run token cleanup with a small probability
     this.cleanupExpiredTokens().catch((err) =>
-      console.error('Failed to clean up expired tokens:', err),
+      logger.error('Failed to clean up expired tokens', { error: err.message }),
     );
 
     if (isPublic) {

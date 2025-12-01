@@ -17,6 +17,7 @@ import { readHtmlFile } from 'src/utils/readHtmlFile';
 import { getCountry } from 'src/utils/getCountry';
 import { generateMetaTags } from './app.model';
 import { CreateLinkDTO } from 'src/links/dto/createLink.dto';
+import { logger } from 'src/utils/logger';
 
 @Controller()
 export class AppController {
@@ -64,23 +65,25 @@ export class AppController {
     @Res() response: ExpressResponse,
   ) {
     try {
-      console.log('Redirecting to:', shortCode);
+      logger.debug('Redirecting to shortcode', { shortCode });
       const link = await this.appService.findLinkByShortCode(shortCode);
       if (!link) {
-        console.error('Link not found:', shortCode);
+        logger.warn('Link not found', { shortCode });
         return response.status(307).redirect('/error');
       }
-      console.log('link project:', link.project);
+      logger.debug('Link project found', { shortCode, projectId: link.project?.id });
 
       if (!link.project) {
-        console.error('Link project not found:', shortCode);
+        logger.error('Link project not found', { shortCode });
         return response.status(307).redirect('/error');
       }
 
-      console.log('All headers:', request.headers);
-      console.log(`language code: ${request.headers['accept-language']}`);
-      console.log(`request timezone: ${request.headers['timezone']}`);
-      console.log(`x-timezone: ${request.headers['x-timezone']}`);
+      logger.debug('Request headers', {
+        allHeaders: request.headers,
+        languageCode: request.headers['accept-language'],
+        timezone: request.headers['timezone'],
+        xTimezone: request.headers['x-timezone'],
+      });
 
       // Extract country - prioritize Cloudflare header, then fall back to timezone detection
       const cfCountry = request.headers['cf-ipcountry'] as string;
@@ -137,7 +140,7 @@ export class AppController {
           utmTerm,
           utmContent,
         })
-        .catch((err) => console.error('Error logging interaction:', err));
+        .catch((err) => logger.error('Error logging interaction', { error: err.message, shortCode }));
 
       const finalLink = this.appService.openAppOnUserDevice(
         link,
@@ -286,7 +289,7 @@ export class AppController {
         </html>
       `);
     } catch (error) {
-      console.error('Error in getLink:', error);
+      logger.error('Error in getLink', { error: error.message, shortCode });
       return response.status(307).redirect('/error');
     }
   }

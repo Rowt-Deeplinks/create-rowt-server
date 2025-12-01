@@ -18,6 +18,7 @@ import { Public } from 'src/auth/public.guard';
 import { LoginDTO } from './dto/login.dto';
 import { Throttle } from '@nestjs/throttler';
 import { UserEntity } from 'src/users/user.entity';
+import { logger } from 'src/utils/logger';
 import { UpdatePasswordDTO } from './dto/updatePassword.dto';
 
 @Controller('auth')
@@ -42,7 +43,7 @@ export class AuthController {
       const loginResponse = await this.authService.login(userFromDb);
       const tokensToIssue = loginResponse.tokens;
 
-      console.log('loginResponse', loginResponse);
+      logger.debug('Login successful', { userId: loginResponse.user.id, email: loginResponse.user.email });
       return {
         tokens: {
           access_token: tokensToIssue.access_token,
@@ -60,7 +61,7 @@ export class AuthController {
   @HttpCode(200)
   async logout(@Body() body: { refresh_token: string; access_token: string }) {
     if (!body?.refresh_token && !body?.access_token) {
-      console.error('Refresh token or access token is required');
+      logger.warn('Logout attempt without tokens');
       throw new BadRequestException(
         'Refresh token and access token are required',
       );
@@ -77,9 +78,9 @@ export class AuthController {
   @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Post('refresh')
   async refresh(@Body() body: { refresh_token: string }) {
-    console.log(`refresh token received: ${body.refresh_token}`);
+    logger.debug('Refresh token request received');
     if (!body?.refresh_token) {
-      console.error('Refresh token is required');
+      logger.warn('Refresh attempt without token');
       throw new BadRequestException('Refresh token is required');
     }
 
@@ -89,11 +90,11 @@ export class AuthController {
         body.refresh_token,
       );
       if (!user) {
-        console.log('Invalid refresh token');
+        logger.warn('Invalid refresh token attempt');
         throw new UnauthorizedException('Invalid refresh token');
       }
 
-      console.log(`valid refresh token for user: ${user.email}`);
+      logger.debug('Valid refresh token', { email: user.email });
 
       // Generate a new access token without full re-login
       const newTokens = await this.authService.generateNewTokens(user);
@@ -121,7 +122,7 @@ export class AuthController {
         isValid: !!user,
       });
     } catch (error) {
-      console.error('Error validating user:', error);
+      logger.error('Error validating user', { error: error.message });
       if (error.message.includes('Password did not match')) {
         res.status(200).json({
           message: 'Password did not match',

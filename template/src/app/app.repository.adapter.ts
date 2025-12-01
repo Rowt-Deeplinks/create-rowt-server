@@ -26,7 +26,7 @@ export class AppRepositoryAdapter implements AppRepositoryPort {
 
   async findLinkByShortCode(shortCode: string): Promise<LinkEntity | null> {
     try {
-      console.log('Finding link by short code');
+      logger.debug('Finding link by short code', { shortCode });
 
       const linkEntity = await this.linkRepository.findOne({
         where: { id: shortCode },
@@ -36,7 +36,7 @@ export class AppRepositoryAdapter implements AppRepositoryPort {
 
       return linkEntity;
     } catch (e) {
-      console.log(e);
+      logger.error('Error finding link by short code', { error: e.message, shortCode });
       return null; // Make sure to return null instead of the error
     }
   }
@@ -156,7 +156,7 @@ export class AppRepositoryAdapter implements AppRepositoryPort {
         subscriptionPeriod,
       };
     } catch (error) {
-      console.error('Error fetching user tier:', error);
+      logger.error('Error fetching user tier', { error: error.message, userId });
       // Default to free tier in case of errors
       return {
         tier: 0,
@@ -199,7 +199,7 @@ export class AppRepositoryAdapter implements AppRepositoryPort {
 
       return parseInt(result[0]?.count || '0', 10);
     } catch (error) {
-      console.error('Error getting user interaction count:', error);
+      logger.error('Error getting user interaction count', { error: error.message, userId });
       return 0; // Return 0 in case of error
     }
   }
@@ -219,7 +219,7 @@ export class AppRepositoryAdapter implements AppRepositoryPort {
   }): Promise<void> {
     try {
       if (!data.shortCode) {
-        console.log('No short code provided');
+        logger.warn('No short code provided for interaction logging');
         return;
       }
 
@@ -230,7 +230,7 @@ export class AppRepositoryAdapter implements AppRepositoryPort {
       });
 
       if (!linkEntity || !linkEntity.project) {
-        console.log('No link or project found');
+        logger.warn('No link or project found for interaction', { shortCode: data.shortCode });
         return;
       }
 
@@ -247,9 +247,11 @@ export class AppRepositoryAdapter implements AppRepositoryPort {
         tierInfo.allowances.interactions !== -1 &&
         currentInteractionCount >= tierInfo.allowances.interactions
       ) {
-        console.log(
-          `User ${userId} has reached interaction limit ${tierInfo.allowances.interactions}`,
-        );
+        logger.info('User reached interaction limit', {
+          userId,
+          limit: tierInfo.allowances.interactions,
+          currentCount: currentInteractionCount,
+        });
         // Still update click count, but don't store detailed interaction data
         linkEntity.lifetimeClicks += 1;
         await this.linkRepository.save(linkEntity);
@@ -295,9 +297,9 @@ export class AppRepositoryAdapter implements AppRepositoryPort {
         this.interactionRepository.save(interactionEntity),
       ]);
 
-      console.log('Interaction logged successfully');
+      logger.debug('Interaction logged successfully', { shortCode: data.shortCode });
     } catch (error) {
-      console.error('Error logging interaction:', error);
+      logger.error('Error logging interaction', { error: error.message, shortCode: data.shortCode });
       // Fail silently to not disrupt user experience
     }
   }
@@ -314,15 +316,11 @@ export class AppRepositoryAdapter implements AppRepositoryPort {
       return link.url;
     }
 
-    const project = link.project;
-
     const fallback = link.fallbackUrlOverride
       ? link.fallbackUrlOverride
       : link.project.fallbackUrl;
 
-    console.log('Opening app on user device');
-    console.log(`Platform: ${os}`);
-    console.log(`Device: ${device}`);
+    logger.debug('Opening app on user device', { platform: os, device, linkId: link.id });
 
     // No need for try/catch here as we're just determining the URL
     if (os === 'ios' || device === 'iphone' || device === 'ipad') {
@@ -333,7 +331,7 @@ export class AppRepositoryAdapter implements AppRepositoryPort {
       return `${link.project.androidScheme}${link.url.slice(1)}`;
     } else {
       // If not iOS or Android, use fallback
-      console.log('Opening fallback');
+      logger.debug('Using fallback URL', { platform: os, device, linkId: link.id });
       return fallback;
     }
   }
