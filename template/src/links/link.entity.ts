@@ -65,13 +65,18 @@ export class LinkEntity {
 
   @BeforeInsert()
   async generateCustomUid() {
+    // If ID is already set (custom shortcode), don't generate a new one
+    if (this.id) {
+      return;
+    }
+
     try {
       // Get the entity manager from the entity instance context
       // This is available during entity lifecycle events
       const entityManager: EntityManager = (this as any).manager;
 
       // Check if this is PostgreSQL
-      if (entityManager.connection.options.type === 'postgres') {
+      if (entityManager && entityManager.connection && entityManager.connection.options.type === 'postgres') {
         try {
           // Try to use the PostgreSQL function
           const result = await entityManager.query('SELECT generate_uid(12)');
