@@ -9,6 +9,7 @@ import { ProjectEntity } from 'src/projects/project.entity';
 import { UserEntity } from 'src/users/user.entity';
 import RowtConfig from 'src/rowtconfig';
 import Stripe from 'stripe';
+import { logger } from 'src/utils/logger';
 
 @Injectable()
 export class AppRepositoryAdapter implements AppRepositoryPort {
@@ -206,8 +207,15 @@ export class AppRepositoryAdapter implements AppRepositoryPort {
   async logInteraction(data: {
     shortCode: string;
     country?: string | null;
+    city?: string | null;
+    ip?: string | null;
     referer?: string;
     userAgent?: string;
+    utmSource?: string | null;
+    utmMedium?: string | null;
+    utmCampaign?: string | null;
+    utmTerm?: string | null;
+    utmContent?: string | null;
   }): Promise<void> {
     try {
       if (!data.shortCode) {
@@ -248,8 +256,16 @@ export class AppRepositoryAdapter implements AppRepositoryPort {
         return;
       }
 
-      console.log('Interaction logging for:', data.shortCode);
-      console.log(`Redirecting user in ${data.country} from ${data.referer}`);
+      logger.info('Interaction logged', {
+        shortCode: data.shortCode,
+        country: data.country,
+        city: data.city,
+        ip: data.ip,
+        referer: data.referer,
+        utmSource: data.utmSource,
+        utmMedium: data.utmMedium,
+        utmCampaign: data.utmCampaign,
+      });
 
       const userEnv = parseUserAgent(data.userAgent as string);
 
@@ -257,10 +273,17 @@ export class AppRepositoryAdapter implements AppRepositoryPort {
       const interactionEntity = this.interactionRepository.create({
         link: { id: data.shortCode },
         country: data.country ?? '',
+        city: data.city ?? '',
+        ip: data.ip ?? '',
         referer: data.referer ?? '',
         browser: userEnv.browser ?? '',
         os: userEnv.os ?? '',
         device: userEnv.device ?? '',
+        utmSource: data.utmSource ?? '',
+        utmMedium: data.utmMedium ?? '',
+        utmCampaign: data.utmCampaign ?? '',
+        utmTerm: data.utmTerm ?? '',
+        utmContent: data.utmContent ?? '',
       });
 
       // Update link click count

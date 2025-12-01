@@ -15,8 +15,15 @@ export interface AppRepositoryPort {
   logInteraction(data: {
     shortCode: string;
     country?: string | null;
+    city?: string | null;
+    ip?: string | null;
     referer?: string;
     userAgent?: string;
+    utmSource?: string | null;
+    utmMedium?: string | null;
+    utmCampaign?: string | null;
+    utmTerm?: string | null;
+    utmContent?: string | null;
   }): Promise<void>;
   openAppOnUserDevice(link: LinkEntity, userAgent: string): string;
 }

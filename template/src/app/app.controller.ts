@@ -59,8 +59,8 @@ export class AppController {
   @Get(':shortCode') // Main redirection logic to the link
   async getLink(
     @Param('shortCode') shortCode: string,
-    @Req() request: Request,
-    @Ip() ip: string,
+    @Req() request: ExpressRequest,
+    @Ip() clientIp: string,
     @Res() response: ExpressResponse,
   ) {
     try {
@@ -81,34 +81,67 @@ export class AppController {
       console.log(`language code: ${request.headers['accept-language']}`);
       console.log(`request timezone: ${request.headers['timezone']}`);
       console.log(`x-timezone: ${request.headers['x-timezone']}`);
+
+      // Extract country - prioritize Cloudflare header, then fall back to timezone detection
+      const cfCountry = request.headers['cf-ipcountry'] as string;
       const timezone =
         request.headers['timezone'] ||
         (request.headers['x-timezone'] as string) ||
         null;
       const languageCode = request.headers['accept-language'] || null;
 
-      // Validate timezone before using it
-      const country = getCountry(timezone, languageCode) || null;
-      const isValidCountry =
-        typeof country === 'string' && country.trim().length > 0;
+      let country: string | null = null;
+      if (cfCountry && cfCountry !== 'XX') {
+        // Cloudflare provides 2-letter country code
+        country = cfCountry;
+      } else if (timezone || languageCode) {
+        // Fall back to timezone-based detection
+        country = getCountry(timezone as string, languageCode as string) || null;
+      }
+
+      // Extract city from Cloudflare headers
+      const city = (request.headers['cf-ipcity'] as string) || null;
+
+      // Extract IP - prioritize Cloudflare's connecting IP, then fall back to direct IP
+      const ip =
+        (request.headers['cf-connecting-ip'] as string) ||
+        (request.headers['x-forwarded-for'] as string)?.split(',')[0] ||
+        (request.headers['x-real-ip'] as string) ||
+        clientIp ||
+        null;
+
+      // Extract UTM parameters from the request URL
+      const url = new URL(request.url, `http://${request.get('host')}`);
+      const utmSource = url.searchParams.get('utm_source') || null;
+      const utmMedium = url.searchParams.get('utm_medium') || null;
+      const utmCampaign = url.searchParams.get('utm_campaign') || null;
+      const utmTerm = url.searchParams.get('utm_term') || null;
+      const utmContent = url.searchParams.get('utm_content') || null;
 
       // Send interaction log to database asynchronously to avoid delaying the response
+      const referer = (request.headers['referer'] ||
+        request.headers['referrer'] ||
+        request.headers['origin']) as string | undefined;
+
       this.appService
         .logInteraction({
           shortCode,
-          country: isValidCountry ? country : null,
-          referer:
-            request.headers['referer'] ||
-            request.headers['referrer'] ||
-            request.headers['origin'] ||
-            null,
-          userAgent: request.headers['user-agent'],
+          country,
+          city,
+          ip,
+          referer,
+          userAgent: request.headers['user-agent'] as string,
+          utmSource,
+          utmMedium,
+          utmCampaign,
+          utmTerm,
+          utmContent,
         })
         .catch((err) => console.error('Error logging interaction:', err));
 
       const finalLink = this.appService.openAppOnUserDevice(
         link,
-        request.headers['user-agent'],
+        request.headers['user-agent'] as string,
       );
 
       // Detect platform and get appropriate fallback URL
