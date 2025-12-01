@@ -106,6 +106,8 @@ export class AuthRepositoryAdapter implements AuthRepositoryPort {
           passwordHash: this.hashedAdminPassword,
           role: 'admin',
           emailVerified: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         };
 
         console.log(
