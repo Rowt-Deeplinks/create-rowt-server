@@ -1,14 +1,16 @@
-FROM node:18-alpine
+FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files and source code
 COPY package*.json ./
+COPY tsconfig*.json ./
+COPY nest-cli.json ./
 
-# Install dependencies
-RUN npm ci
+# Install dependencies (skip postinstall for now)
+RUN npm ci --ignore-scripts
 
-# Copy source code
+# Copy rest of source code
 COPY . .
 
 # Build the application
