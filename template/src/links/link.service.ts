@@ -22,6 +22,7 @@ export class LinkService {
       fallbackUrlOverride: createLinkDto.fallbackUrlOverride,
       additionalMetadata: createLinkDto.additionalMetadata,
       properties: createLinkDto.properties,
+      customShortcode: createLinkDto.customShortcode,
     };
 
     // Pass the Link to the repository

@@ -1,5 +1,5 @@
 import RowtConfig from './rowtconfig';
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { LinkModule } from './links/link.module';
@@ -23,6 +23,7 @@ import { JwtAuthGuard } from './auth/tokens/jwt-auth.guard';
 import PGUseFactoryConfig from './database/PGUseFactoryConfig';
 import { join } from 'path';
 import { getDatabaseConfig } from './database/DatabaseFactoryConfig';
+import { HttpsRedirectMiddleware } from './middleware/https-redirect.middleware';
 
 @Module({
   imports: [
@@ -78,4 +79,8 @@ import { getDatabaseConfig } from './database/DatabaseFactoryConfig';
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(HttpsRedirectMiddleware).forRoutes('*');
+  }
+}

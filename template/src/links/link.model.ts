@@ -9,6 +9,7 @@ export class Link {
     public readonly additionalMetadata?: Record<string, any>,
     public readonly properties?: Record<string, any>,
     public readonly lifetimeClicks?: number,
+    public readonly customShortcode?: string,
   ) {}
 }
 

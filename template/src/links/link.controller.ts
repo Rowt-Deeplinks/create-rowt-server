@@ -13,6 +13,7 @@ import { CreateLinkDTO } from './dto/createLink.dto';
 import { Public } from 'src/auth/public.guard';
 import { readHtmlFile } from 'src/utils/readHtmlFile';
 import { ProjectService } from 'src/projects/project.service';
+import { logger } from 'src/utils/logger';
 
 @Controller('link')
 export class LinkController {
@@ -33,7 +34,11 @@ export class LinkController {
     @Body() createLinkRequest: CreateLinkDTO,
     @Req() req: Request,
   ) {
-    console.log('Creating link with request: ', createLinkRequest);
+    logger.info('Link creation requested', {
+      projectId: createLinkRequest?.projectId,
+      customShortcode: createLinkRequest?.customShortcode
+    });
+
     try {
       if (!createLinkRequest) {
         throw new BadRequestException('Invalid request - missing body');
@@ -44,6 +49,7 @@ export class LinkController {
         createLinkRequest.apiKey,
       );
       if (!authorized) {
+        logger.warn('Unauthorized link creation attempt', { projectId: createLinkRequest.projectId });
         throw new UnauthorizedException('Invalid API key or project ID');
       }
 
@@ -58,9 +64,21 @@ export class LinkController {
       }
 
       const host = req.headers['host'];
+      const fullUrl = `${host.includes('localhost') ? '' : 'https://'}${host}/${shortcode}`;
 
-      return `${host.includes('localhost') ? '' : 'https://'}${host}/${shortcode}`;
+      logger.info('Link created successfully', {
+        projectId: createLinkRequest.projectId,
+        shortcode,
+        customShortcode: createLinkRequest.customShortcode || false
+      });
+
+      return fullUrl;
     } catch (error) {
+      logger.error('Link creation failed', {
+        projectId: createLinkRequest?.projectId,
+        error: error.message
+      });
+
       if (
         error instanceof BadRequestException ||
         error instanceof UnauthorizedException

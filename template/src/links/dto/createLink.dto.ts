@@ -1,4 +1,4 @@
-import { IsUUID, IsUrl, IsOptional, IsString, IsDate } from 'class-validator';
+import { IsUUID, IsUrl, IsOptional, IsString, IsDate, Matches, Length } from 'class-validator';
 
 export class CreateLinkDTO {
   @IsUUID()
@@ -10,6 +10,12 @@ export class CreateLinkDTO {
 
   @IsUrl()
   url: string;
+
+  @IsString()
+  @IsOptional()
+  @Length(1, 12)
+  @Matches(/^[a-zA-Z0-9_-]+$/, { message: 'Custom shortcode must only contain letters, numbers, hyphens, and underscores' })
+  customShortcode?: string;
 
   @IsDate()
   @IsOptional()

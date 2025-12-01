@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Link } from './link.model';
@@ -207,7 +207,19 @@ export class LinkRepositoryAdapter implements LinkRepositoryPort {
       }
     }
 
+    // Check if custom shortcode already exists
+    if (link.customShortcode) {
+      const existing = await this.linkRepository.findOne({
+        where: { id: link.customShortcode },
+      });
+
+      if (existing) {
+        throw new BadRequestException(`Custom shortcode "${link.customShortcode}" is already in use`);
+      }
+    }
+
     const linkEntity = this.linkRepository.create({
+      id: link.customShortcode, // Set custom shortcode as ID if provided
       project: { id: link.projectId },
       url: link.url,
       title: link.title,

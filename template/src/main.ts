@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { webcrypto } from 'crypto';
+import { logger } from './utils/logger';
 // import { GlobalExceptionFilter } from './utils/global-exception.filter';
 // import { ValidationPipe } from './utils/validation.pipe';
 if (!globalThis.crypto) {
@@ -29,7 +30,7 @@ async function bootstrap() {
 
   const port = process.env.PORT || 8080;
   await app.listen(port, '0.0.0.0', () => {
-    console.log(`Application is running on port: ${port}`);
+    logger.info('Application started', { port, nodeEnv: process.env.NODE_ENV });
   });
 }
 bootstrap();
