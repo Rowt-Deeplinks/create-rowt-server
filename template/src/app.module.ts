@@ -6,7 +6,6 @@ import { LinkModule } from './links/link.module';
 import { ProjectModule } from './projects/project.module';
 import { CleanupModule } from './cleanup/cleanup.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { AppService } from './app/app.service';
 import { UserEntity } from './users/user.entity';
 import { ProjectEntity } from './projects/project.entity';
 import { LinkEntity } from './links/link.entity';
@@ -14,8 +13,6 @@ import { InteractionEntity } from './links/interaction.entity';
 import { RefreshTokenEntity } from './auth/tokens/entities/refresh-token.entity';
 import { BlacklistedTokenEntity } from './auth/tokens/entities/blacklisted-token.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AppController } from './app/app.controller';
-import { AppRepositoryAdapter } from './app/app.repository.adapter';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { APP_GUARD } from '@nestjs/core';
@@ -24,6 +21,9 @@ import PGUseFactoryConfig from './database/PGUseFactoryConfig';
 import { join } from 'path';
 import { getDatabaseConfig } from './database/DatabaseFactoryConfig';
 import { HttpsRedirectMiddleware } from './middleware/https-redirect.middleware';
+import { AnalyticsModule } from './analytics/analytics.module';
+import { ObservabilityModule } from './observability/observability.module';
+import { AppControllerModule } from './app/app-controller.module';
 
 @Module({
   imports: [
@@ -36,6 +36,8 @@ import { HttpsRedirectMiddleware } from './middleware/https-redirect.middleware'
     ProjectModule,
     LinkModule,
     CleanupModule,
+    AnalyticsModule,
+    ObservabilityModule,
     TypeOrmModule.forFeature([
       LinkEntity,
       InteractionEntity,
@@ -59,14 +61,10 @@ import { HttpsRedirectMiddleware } from './middleware/https-redirect.middleware'
       rootPath: join(__dirname, '..', 'public'), // Path to your public folder
       serveRoot: '/static', // Serve files under the /static prefix
     }),
+    AppControllerModule, // Import LAST so catch-all route registers after all specific routes
   ],
-  controllers: [AppController],
+  controllers: [],
   providers: [
-    AppService,
-    {
-      provide: 'AppRepository',
-      useClass: AppRepositoryAdapter,
-    },
     {
       // Rate limit global guard, can be overridden per endpoint with the @Throttle() decorator
       provide: APP_GUARD,

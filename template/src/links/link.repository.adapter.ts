@@ -42,7 +42,7 @@ export class LinkRepositoryAdapter implements LinkRepositoryPort {
       }
 
       const user = await this.userRepository.findOne({
-        where: { id: parseInt(userId) },
+        where: { id: userId as unknown as number },
       });
       if (!user) {
         throw new NotFoundException('User not found');

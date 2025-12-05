@@ -68,7 +68,7 @@ export class AppRepositoryAdapter implements AppRepositoryPort {
 
       // Find the user
       const user = await this.userRepository.findOne({
-        where: { id: parseInt(userId) },
+        where: { id: userId as unknown as number },
       });
 
       if (!user) {
