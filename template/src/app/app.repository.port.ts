@@ -24,6 +24,7 @@ export interface AppRepositoryPort {
     utmCampaign?: string | null;
     utmTerm?: string | null;
     utmContent?: string | null;
+    resolvedUrl?: string;
   }): Promise<void>;
   openAppOnUserDevice(link: LinkEntity, userAgent: string): string;
 }

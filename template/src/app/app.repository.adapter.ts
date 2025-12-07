@@ -216,6 +216,7 @@ export class AppRepositoryAdapter implements AppRepositoryPort {
     utmCampaign?: string | null;
     utmTerm?: string | null;
     utmContent?: string | null;
+    resolvedUrl?: string;
   }): Promise<void> {
     try {
       if (!data.shortCode) {
@@ -286,6 +287,7 @@ export class AppRepositoryAdapter implements AppRepositoryPort {
         utmCampaign: data.utmCampaign ?? '',
         utmTerm: data.utmTerm ?? '',
         utmContent: data.utmContent ?? '',
+        resolvedUrl: data.resolvedUrl ?? '',
       });
 
       // Update link click count

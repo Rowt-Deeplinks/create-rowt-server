@@ -3,4 +3,5 @@ import { EventsResponseDTO } from './dto/events-response.dto';
 
 export abstract class ObservabilityRepositoryPort {
   abstract getEvents(query: EventsQueryDTO): Promise<EventsResponseDTO>;
+  abstract verifyProjectAccess(projectId: string, userId: string): Promise<boolean>;
 }

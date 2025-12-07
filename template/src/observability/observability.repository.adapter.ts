@@ -25,10 +25,9 @@ export class ObservabilityRepositoryAdapter
   ) {}
 
   async getEvents(query: EventsQueryDTO): Promise<EventsResponseDTO> {
-    const startDate =
-      query.startDate || new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const startDate = query.startDate || new Date(0); // Beginning of time if not specified
     const endDate = query.endDate || new Date();
-    const limit = Math.min(query.limit || 100, 500);
+    const limit = Math.min(query.limit || 50, 500);
     const offset = query.offset || 0;
     const userId = query.userId; // User-scoped filtering (enforced by controller)
 
@@ -36,15 +35,11 @@ export class ObservabilityRepositoryAdapter
     const eventPromises: Promise<EventDTO[]>[] = [];
 
     if (!query.eventTypes || query.eventTypes.includes('user.created')) {
-      eventPromises.push(
-        this.getUserCreatedEvents(startDate, endDate, userId),
-      );
+      eventPromises.push(this.getUserCreatedEvents(startDate, endDate, userId));
     }
 
     if (!query.eventTypes || query.eventTypes.includes('user.updated')) {
-      eventPromises.push(
-        this.getUserUpdatedEvents(startDate, endDate, userId),
-      );
+      eventPromises.push(this.getUserUpdatedEvents(startDate, endDate, userId));
     }
 
     if (!query.eventTypes || query.eventTypes.includes('project.created')) {
@@ -75,10 +70,24 @@ export class ObservabilityRepositoryAdapter
     const eventArrays = await Promise.all(eventPromises);
 
     // Flatten and sort by timestamp
-    const allEvents = eventArrays.flat().sort((a, b) => {
+    let allEvents = eventArrays.flat().sort((a, b) => {
       const direction = query.sortDirection === 'ASC' ? 1 : -1;
       return direction * (a.timestamp.getTime() - b.timestamp.getTime());
     });
+
+    // Apply search filter if provided
+    if (query.search) {
+      const searchLower = query.search.toLowerCase();
+      allEvents = allEvents.filter((event) => {
+        const searchableText = JSON.stringify({
+          type: event.type,
+          actor: event.actor,
+          resource: event.resource,
+          metadata: event.metadata,
+        }).toLowerCase();
+        return searchableText.includes(searchLower);
+      });
+    }
 
     // Apply pagination
     const total = allEvents.length;
@@ -93,6 +102,16 @@ export class ObservabilityRepositoryAdapter
         hasMore: offset + limit < total,
       },
     };
+  }
+
+  async verifyProjectAccess(
+    projectId: string,
+    userId: string,
+  ): Promise<boolean> {
+    const project = await this.projectRepository.findOne({
+      where: { id: projectId, userId: userId },
+    });
+    return !!project;
   }
 
   private async getUserCreatedEvents(
@@ -294,8 +313,14 @@ export class ObservabilityRepositoryAdapter
         type: 'link' as const,
         id: link.id,
         attributes: {
+          shortCode: link.id,
           url: link.url,
           title: link.title,
+          description: link.description,
+          fallbackUrlOverride: link.fallbackUrlOverride,
+          additionalMetadata: link.additionalMetadata,
+          properties: link.properties,
+          lifetimeClicks: link.lifetimeClicks,
           projectId: link.project?.id,
           projectName: link.project?.name,
         },
@@ -309,9 +334,6 @@ export class ObservabilityRepositoryAdapter
     userId?: string,
     query?: EventsQueryDTO,
   ): Promise<EventDTO[]> {
-    // Limit interaction events to 50 to avoid overwhelming response
-    const interactionLimit = 50;
-
     const qb = this.interactionRepository
       .createQueryBuilder('interaction')
       .leftJoinAndSelect('interaction.link', 'link')
@@ -333,8 +355,6 @@ export class ObservabilityRepositoryAdapter
       qb.andWhere('interaction.link.id = :linkId', { linkId: query.linkId });
     }
 
-    qb.orderBy('interaction.timestamp', 'DESC').take(interactionLimit);
-
     const interactions = await qb.getMany();
 
     return interactions.map((interaction) => ({
@@ -349,9 +369,22 @@ export class ObservabilityRepositoryAdapter
         id: interaction.id,
         attributes: {
           linkId: interaction.link?.id,
+          shortCode: interaction.link?.id,
+          linkUrl: interaction.link?.url,
+          linkTitle: interaction.link?.title,
+          resolvedUrl: interaction.resolvedUrl,
+          projectId: interaction.link?.project?.id,
+          projectName: interaction.link?.project?.name,
           country: interaction.country,
+          city: interaction.city,
           device: interaction.device,
+          os: interaction.os,
+          browser: interaction.browser,
+          utmSource: interaction.utmSource,
+          utmMedium: interaction.utmMedium,
           utmCampaign: interaction.utmCampaign,
+          utmTerm: interaction.utmTerm,
+          utmContent: interaction.utmContent,
         },
       },
       metadata: {

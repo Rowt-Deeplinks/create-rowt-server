@@ -54,6 +54,9 @@ export class InteractionEntity {
   @Column({ type: 'varchar', length: 255, nullable: true }) // UTM content
   utmContent?: string;
 
+  @Column({ type: 'varchar', length: 2048, nullable: true }) // Resolved destination URL
+  resolvedUrl?: string;
+
   @DynamicDBColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   timestamp: Date;
 }

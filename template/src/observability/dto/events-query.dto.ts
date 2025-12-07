@@ -30,6 +30,10 @@ export class EventsQueryDTO {
   linkId?: string;
 
   @IsOptional()
+  @IsString()
+  search?: string;
+
+  @IsOptional()
   @IsInt()
   @Min(1)
   @Max(500)

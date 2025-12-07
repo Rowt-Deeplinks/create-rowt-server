@@ -13,4 +13,8 @@ export class ObservabilityService {
   async getEvents(query: EventsQueryDTO): Promise<EventsResponseDTO> {
     return this.observabilityRepository.getEvents(query);
   }
+
+  async verifyProjectAccess(projectId: string, userId: string): Promise<boolean> {
+    return this.observabilityRepository.verifyProjectAccess(projectId, userId);
+  }
 }

@@ -121,6 +121,12 @@ export class AppController {
       const utmTerm = url.searchParams.get('utm_term') || null;
       const utmContent = url.searchParams.get('utm_content') || null;
 
+      // Determine the resolved URL first
+      const finalLink = this.appService.openAppOnUserDevice(
+        link,
+        request.headers['user-agent'] as string,
+      );
+
       // Send interaction log to database asynchronously to avoid delaying the response
       const referer = (request.headers['referer'] ||
         request.headers['referrer'] ||
@@ -139,13 +145,9 @@ export class AppController {
           utmCampaign,
           utmTerm,
           utmContent,
+          resolvedUrl: finalLink,
         })
         .catch((err) => logger.error('Error logging interaction', { error: err.message, shortCode }));
-
-      const finalLink = this.appService.openAppOnUserDevice(
-        link,
-        request.headers['user-agent'] as string,
-      );
 
       // Detect platform and get appropriate fallback URL
       const userAgent = request.headers['user-agent'] || '';

@@ -32,36 +32,42 @@ export class ObservabilityController {
     @Res() res: Response,
   ): Promise<void> {
     try {
+      const userRole = (req.user as any)?.role || 'user';
+      const isAdmin = userRole === 'admin';
+
       logger.info('Events query requested', {
         userId: req.user?.userId,
-        eventTypes: query.eventTypes,
+        role: userRole,
+        projectId: query.projectId,
       });
 
-      // Force user-scoped filtering - users can ONLY see their own events
-      query.userId = req.user?.userId;
-
-      // Set default date range if not provided (last 24 hours)
-      if (!query.startDate) {
-        query.startDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      }
-      if (!query.endDate) {
-        query.endDate = new Date();
-      }
-
-      // Validate date range
-      if (query.startDate >= query.endDate) {
-        res.status(400).json({ message: 'startDate must be before endDate' });
+      // Non-admin users MUST provide projectId
+      if (!isAdmin && !query.projectId) {
+        res.status(400).json({ message: 'projectId is required' });
         return;
       }
 
-      // Validate date range is not too large (max 90 days)
-      const daysDiff =
-        (query.endDate.getTime() - query.startDate.getTime()) /
-        (1000 * 60 * 60 * 24);
-      if (daysDiff > 90) {
-        res
-          .status(400)
-          .json({ message: 'Date range cannot exceed 90 days' });
+      // For non-admin users, verify project ownership
+      if (!isAdmin && query.projectId && req.user?.userId) {
+        const hasAccess = await this.observabilityService.verifyProjectAccess(
+          query.projectId,
+          req.user.userId,
+        );
+        if (!hasAccess) {
+          res.status(403).json({ message: 'Project access denied' });
+          return;
+        }
+      }
+
+      // Admin users can query all events (no userId filter)
+      // Non-admin users are limited to their own events
+      if (!isAdmin) {
+        query.userId = req.user?.userId;
+      }
+
+      // Validate date range if provided
+      if (query.startDate && query.endDate && query.startDate >= query.endDate) {
+        res.status(400).json({ message: 'startDate must be before endDate' });
         return;
       }
 

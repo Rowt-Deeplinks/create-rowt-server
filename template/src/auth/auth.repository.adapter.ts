@@ -16,6 +16,7 @@ import { BlacklistedTokenEntity } from './tokens/entities/blacklisted-token.enti
 import { getExpirationDate } from 'src/utils/getExpirationDate';
 import { LoginDTO } from './dto/login.dto';
 import LoginResponseDTO from './dto/loginResponse.dto';
+import { logger } from 'src/utils/logger';
 
 @Injectable()
 export class AuthRepositoryAdapter implements AuthRepositoryPort {
@@ -42,8 +43,8 @@ export class AuthRepositoryAdapter implements AuthRepositoryPort {
       const adminPassword = process.env.ROWT_ADMIN_PASSWORD;
 
       if (!adminEmail || !adminPassword) {
-        console.error(
-          'WARNING: ROWT_ADMIN_PASSWORD or ROWT_ADMIN_EMAIL environment variable not set in single-tenant mode',
+        logger.error(
+          'ROWT_ADMIN_PASSWORD or ROWT_ADMIN_EMAIL environment variable not set in single-tenant mode'
         );
         return;
       }
@@ -52,7 +53,7 @@ export class AuthRepositoryAdapter implements AuthRepositoryPort {
         // Hash the admin password on startup
         const saltRounds = 10;
         this.hashedAdminPassword = await bcrypt.hash(adminPassword, saltRounds);
-        console.log('Single-tenant admin password securely hashed');
+        logger.info('Single-tenant admin password securely hashed');
 
         // Create or update admin user in database
         try {
@@ -63,7 +64,7 @@ export class AuthRepositoryAdapter implements AuthRepositoryPort {
           if (existingUser) {
             existingUser.passwordHash = this.hashedAdminPassword;
             await this.usersService.updateUser(existingUser);
-            console.log('Synced admin user password in database');
+            logger.info('Synced admin user password in database');
           }
         } catch (error) {
           // User doesn't exist, create it
@@ -74,10 +75,10 @@ export class AuthRepositoryAdapter implements AuthRepositoryPort {
           };
 
           await this.usersService.createUser(createUserDto);
-          console.log('Created admin user in database');
+          logger.info('Created admin user in database');
         }
       } catch (error) {
-        console.error('Failed to setup admin user:', error);
+        logger.error('Failed to setup admin user', { error: error.message });
       }
     }
   }
@@ -110,13 +111,7 @@ export class AuthRepositoryAdapter implements AuthRepositoryPort {
           updatedAt: new Date(),
         };
 
-        console.log(
-          'Validating credentials for single-tenant mode',
-          'email:',
-          email,
-          'password:',
-          pass,
-        );
+        logger.debug('Validating credentials for single-tenant mode', { email });
 
         const isMatch = await bcrypt.compare(pass, this.hashedAdminPassword);
         if (isMatch) {

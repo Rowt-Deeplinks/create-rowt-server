@@ -25,6 +25,7 @@ export class AppService {
     utmCampaign?: string | null;
     utmTerm?: string | null;
     utmContent?: string | null;
+    resolvedUrl?: string;
   }): Promise<void> {
     return this.appRepository.logInteraction(data);
   }
