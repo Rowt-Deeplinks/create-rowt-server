@@ -1,8 +1,22 @@
-export interface AnalyticsQuery {
+export interface DimensionQuery {
   projectId: string;
+  dimension:
+    | 'links'
+    | 'countries'
+    | 'cities'
+    | 'devices'
+    | 'os'
+    | 'browsers'
+    | 'referrers'
+    | 'resolvedUrls'
+    | 'utmSources'
+    | 'utmMediums'
+    | 'utmCampaigns'
+    | 'utmTerms'
+    | 'utmContents';
   startDate: Date;
   endDate: Date;
-  timezone?: string; // e.g., "America/Los_Angeles", defaults to UTC
+  timezone?: string;
   filters?: {
     linkId?: string;
     destination?: string;
@@ -20,7 +34,6 @@ export interface AnalyticsQuery {
     utmContent?: string;
     resolvedUrl?: string;
   };
-  options?: {
-    topN?: number; // default 10, max 100
-  };
+  limit?: number; // default 50, max 500
+  offset?: number; // default 0
 }

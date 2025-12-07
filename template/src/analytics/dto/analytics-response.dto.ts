@@ -29,6 +29,11 @@ export interface AnalyticsQueryMetadata {
   appliedFilters?: any;
 }
 
+export interface AggregationResult<T = AggregatedCount> {
+  items: T[];
+  hasMore: boolean;
+}
+
 export interface AnalyticsResponse {
   query: AnalyticsQueryMetadata;
   summary: AnalyticsSummary;
@@ -37,17 +42,20 @@ export interface AnalyticsResponse {
     data: TimeSeriesDataPoint[];
   };
   aggregations: {
-    topDestinations: AggregatedCount[];
-    topLinks: LinkAggregation[];
-    topReferrers: AggregatedCount[];
-    topCountries: AggregatedCount[];
-    topCities: AggregatedCount[];
-    linkTypes: AggregatedCount[];
-    topOS: AggregatedCount[];
-    topBrowsers: AggregatedCount[];
-    topDevices: AggregatedCount[];
-    topUtmSources: AggregatedCount[];
-    topUtmMediums: AggregatedCount[];
-    topUtmCampaigns: AggregatedCount[];
+    topDestinations: AggregationResult;
+    topLinks: AggregationResult<LinkAggregation>;
+    topReferrers: AggregationResult;
+    topCountries: AggregationResult;
+    topCities: AggregationResult;
+    linkTypes: AggregationResult;
+    topOS: AggregationResult;
+    topBrowsers: AggregationResult;
+    topDevices: AggregationResult;
+    topUtmSources: AggregationResult;
+    topUtmMediums: AggregationResult;
+    topUtmCampaigns: AggregationResult;
+    topUtmTerms: AggregationResult;
+    topUtmContents: AggregationResult;
+    topResolvedUrls: AggregationResult;
   };
 }

@@ -29,7 +29,11 @@ import { UserEntity } from 'src/users/user.entity';
       secret: process.env.ROWT_JWT_SECRET as string,
       signOptions: { expiresIn: '1h' },
     }),
-    TypeOrmModule.forFeature([RefreshTokenEntity, BlacklistedTokenEntity, UserEntity]),
+    TypeOrmModule.forFeature([
+      RefreshTokenEntity,
+      BlacklistedTokenEntity,
+      UserEntity,
+    ]),
   ],
   controllers: [AuthController],
   providers: [

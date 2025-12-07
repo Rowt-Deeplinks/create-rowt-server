@@ -12,7 +12,10 @@ import {
   AggregatedCount,
   TimeSeriesDataPoint,
   LinkAggregation,
+  AggregationResult,
 } from './dto/analytics-response.dto';
+import { DimensionQuery } from './dto/dimension-query.dto';
+import { DimensionResponse } from './dto/dimension-response.dto';
 
 @Injectable()
 export class AnalyticsRepositoryAdapter implements AnalyticsRepositoryPort {
@@ -71,6 +74,9 @@ export class AnalyticsRepositoryAdapter implements AnalyticsRepositoryPort {
           i.utm_source,
           i.utm_medium,
           i.utm_campaign,
+          i.utm_term,
+          i.utm_content,
+          i.resolved_url,
           i.ip,
           l.id as link_id,
           l.title as link_title,
@@ -101,6 +107,9 @@ export class AnalyticsRepositoryAdapter implements AnalyticsRepositoryPort {
       topUtmSources,
       topUtmMediums,
       topUtmCampaigns,
+      topUtmTerms,
+      topUtmContents,
+      topResolvedUrls,
     ] = await Promise.all([
       this.getTotalCount(baseCTE, allParams),
       this.getUniqueVisitors(baseCTE, allParams),
@@ -117,6 +126,9 @@ export class AnalyticsRepositoryAdapter implements AnalyticsRepositoryPort {
       this.executeDimensionQuery(baseCTE, allParams, 'utm_source', topN),
       this.executeDimensionQuery(baseCTE, allParams, 'utm_medium', topN),
       this.executeDimensionQuery(baseCTE, allParams, 'utm_campaign', topN),
+      this.executeDimensionQuery(baseCTE, allParams, 'utm_term', topN),
+      this.executeDimensionQuery(baseCTE, allParams, 'utm_content', topN),
+      this.executeDimensionQuery(baseCTE, allParams, 'resolved_url', topN),
     ]);
 
     const summary: AnalyticsSummary = {
@@ -151,11 +163,101 @@ export class AnalyticsRepositoryAdapter implements AnalyticsRepositoryPort {
         topUtmSources,
         topUtmMediums,
         topUtmCampaigns,
+        topUtmTerms,
+        topUtmContents,
+        topResolvedUrls,
       },
     };
   }
 
-  private buildFilterParams(query: AnalyticsQuery): [string[], any[]] {
+  async getDimensionBreakdown(
+    query: DimensionQuery,
+  ): Promise<DimensionResponse> {
+    // Map dimension names to database columns
+    const dimensionMap: Record<string, string> = {
+      countries: 'country',
+      cities: 'city',
+      devices: 'device',
+      os: 'os',
+      browsers: 'browser',
+      referrers: 'referer',
+      resolvedUrls: 'resolved_url',
+      utmSources: 'utm_source',
+      utmMediums: 'utm_medium',
+      utmCampaigns: 'utm_campaign',
+      utmTerms: 'utm_term',
+      utmContents: 'utm_content',
+    };
+
+    const limit = Math.min(query.limit || 50, 500);
+    const offset = query.offset || 0;
+
+    // Build filter conditions
+    const [filterConditions, filterParams] = this.buildFilterParams(query);
+    const allParams = [query.projectId, query.startDate, query.endDate, ...filterParams];
+
+    // Build base CTE with timezone conversion
+    const baseCTE = `
+      WITH filtered_interactions AS (
+        SELECT
+          i.*,
+          l.id as link_id,
+          l.title as link_title,
+          l.url as link_url
+        FROM interactions i
+        INNER JOIN links l ON i.link_id = l.id
+        WHERE l.project_id = $1
+          AND i.timestamp >= $2
+          AND i.timestamp <= $3
+          ${filterConditions.join(' ')}
+      )
+    `;
+
+    // Execute query based on dimension type
+    let items: (AggregatedCount | LinkAggregation)[];
+    let total: number;
+
+    if (query.dimension === 'links') {
+      // Special handling for links dimension
+      [items, total] = await Promise.all([
+        this.executeLinkQueryWithPagination(baseCTE, allParams, limit, offset),
+        this.getDimensionTotal(baseCTE, allParams, 'link_id'),
+      ]);
+    } else {
+      const columnName = dimensionMap[query.dimension];
+      if (!columnName) {
+        throw new Error(`Invalid dimension: ${query.dimension}`);
+      }
+
+      [items, total] = await Promise.all([
+        this.executeDimensionQueryWithPagination(baseCTE, allParams, columnName, limit, offset),
+        this.getDimensionTotal(baseCTE, allParams, columnName),
+      ]);
+    }
+
+    return {
+      query: {
+        projectId: query.projectId,
+        dimension: query.dimension,
+        startDate: query.startDate,
+        endDate: query.endDate,
+        executedAt: new Date(),
+        appliedFilters: query.filters,
+      },
+      dimension: query.dimension,
+      items,
+      pagination: {
+        limit,
+        offset,
+        total,
+        hasMore: offset + limit < total,
+      },
+    };
+  }
+
+  private buildFilterParams(
+    query: AnalyticsQuery | DimensionQuery,
+  ): [string[], any[]] {
     const conditions: string[] = [];
     const params: any[] = [];
     let paramIndex = 4;
@@ -219,6 +321,21 @@ export class AnalyticsRepositoryAdapter implements AnalyticsRepositoryPort {
     if (query.filters?.utmCampaign) {
       conditions.push(`AND i.utm_campaign = $${paramIndex++}`);
       params.push(query.filters.utmCampaign);
+    }
+
+    if (query.filters?.utmTerm) {
+      conditions.push(`AND i.utm_term = $${paramIndex++}`);
+      params.push(query.filters.utmTerm);
+    }
+
+    if (query.filters?.utmContent) {
+      conditions.push(`AND i.utm_content = $${paramIndex++}`);
+      params.push(query.filters.utmContent);
+    }
+
+    if (query.filters?.resolvedUrl) {
+      conditions.push(`AND i.resolved_url = $${paramIndex++}`);
+      params.push(query.filters.resolvedUrl);
     }
 
     return [conditions, params];
@@ -310,7 +427,7 @@ export class AnalyticsRepositoryAdapter implements AnalyticsRepositoryPort {
     params: any[],
     dimension: string,
     topN: number,
-  ): Promise<AggregatedCount[]> {
+  ): Promise<AggregationResult> {
     const query = `
       ${cte}
       SELECT
@@ -321,7 +438,7 @@ export class AnalyticsRepositoryAdapter implements AnalyticsRepositoryPort {
       GROUP BY ${dimension}
       HAVING COALESCE(NULLIF(${dimension}, ''), 'Unknown') != ''
       ORDER BY count DESC
-      LIMIT ${topN}
+      LIMIT ${topN + 1}
     `;
 
     const results = await this.interactionRepository.manager.query(
@@ -329,18 +446,21 @@ export class AnalyticsRepositoryAdapter implements AnalyticsRepositoryPort {
       params,
     );
 
-    return results.map((row: any) => ({
+    const hasMore = results.length > topN;
+    const items = results.slice(0, topN).map((row: any) => ({
       value: row.value,
       count: row.count,
       percentage: parseFloat(row.percentage),
     }));
+
+    return { items, hasMore };
   }
 
   private async executeDestinationQuery(
     cte: string,
     params: any[],
     topN: number,
-  ): Promise<AggregatedCount[]> {
+  ): Promise<AggregationResult> {
     const query = `
       ${cte}
       SELECT
@@ -351,7 +471,7 @@ export class AnalyticsRepositoryAdapter implements AnalyticsRepositoryPort {
       WHERE link_url IS NOT NULL AND link_url != ''
       GROUP BY link_url
       ORDER BY count DESC
-      LIMIT ${topN}
+      LIMIT ${topN + 1}
     `;
 
     const results = await this.interactionRepository.manager.query(
@@ -359,18 +479,21 @@ export class AnalyticsRepositoryAdapter implements AnalyticsRepositoryPort {
       params,
     );
 
-    return results.map((row: any) => ({
+    const hasMore = results.length > topN;
+    const items = results.slice(0, topN).map((row: any) => ({
       value: row.value,
       count: row.count,
       percentage: parseFloat(row.percentage),
     }));
+
+    return { items, hasMore };
   }
 
   private async executeLinkQuery(
     cte: string,
     params: any[],
     topN: number,
-  ): Promise<LinkAggregation[]> {
+  ): Promise<AggregationResult<LinkAggregation>> {
     const query = `
       ${cte}
       SELECT
@@ -383,7 +506,7 @@ export class AnalyticsRepositoryAdapter implements AnalyticsRepositoryPort {
       WHERE link_id IS NOT NULL
       GROUP BY link_id
       ORDER BY count DESC
-      LIMIT ${topN}
+      LIMIT ${topN + 1}
     `;
 
     const results = await this.interactionRepository.manager.query(
@@ -391,19 +514,22 @@ export class AnalyticsRepositoryAdapter implements AnalyticsRepositoryPort {
       params,
     );
 
-    return results.map((row: any) => ({
+    const hasMore = results.length > topN;
+    const items = results.slice(0, topN).map((row: any) => ({
       value: row.value,
       linkTitle: row.link_title,
       linkUrl: row.link_url,
       count: row.count,
       percentage: parseFloat(row.percentage),
     }));
+
+    return { items, hasMore };
   }
 
   private async executeLinkTypeQuery(
     cte: string,
     params: any[],
-  ): Promise<AggregatedCount[]> {
+  ): Promise<AggregationResult> {
     const query = `
       ${cte}
       SELECT
@@ -429,11 +555,13 @@ export class AnalyticsRepositoryAdapter implements AnalyticsRepositoryPort {
       params,
     );
 
-    return results.map((row: any) => ({
+    const items = results.map((row: any) => ({
       value: row.value,
       count: row.count,
       percentage: parseFloat(row.percentage),
     }));
+
+    return { items, hasMore: false };
   }
 
   private calculateTimeRange(startDate: Date, endDate: Date): string {
@@ -445,5 +573,91 @@ export class AnalyticsRepositoryAdapter implements AnalyticsRepositoryPort {
     if (days <= 30) return `${days} days`;
     const months = Math.floor(days / 30);
     return months === 1 ? '1 month' : `${months} months`;
+  }
+
+  private async executeDimensionQueryWithPagination(
+    cte: string,
+    params: any[],
+    dimension: string,
+    limit: number,
+    offset: number,
+  ): Promise<AggregatedCount[]> {
+    const query = `
+      ${cte}
+      SELECT
+        ${dimension} as value,
+        COUNT(*)::int as count,
+        ROUND((COUNT(*)::numeric / (SELECT COUNT(*) FROM filtered_interactions)::numeric * 100), 2) as percentage
+      FROM filtered_interactions
+      WHERE ${dimension} IS NOT NULL AND ${dimension} != ''
+      GROUP BY ${dimension}
+      ORDER BY count DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+
+    const results = await this.interactionRepository.manager.query(
+      query,
+      params,
+    );
+
+    return results.map((row: any) => ({
+      value: row.value,
+      count: row.count,
+      percentage: parseFloat(row.percentage),
+    }));
+  }
+
+  private async executeLinkQueryWithPagination(
+    cte: string,
+    params: any[],
+    limit: number,
+    offset: number,
+  ): Promise<LinkAggregation[]> {
+    const query = `
+      ${cte}
+      SELECT
+        link_id as value,
+        link_title,
+        link_url,
+        COUNT(*)::int as count,
+        ROUND((COUNT(*)::numeric / (SELECT COUNT(*) FROM filtered_interactions)::numeric * 100), 2) as percentage
+      FROM filtered_interactions
+      GROUP BY link_id, link_title, link_url
+      ORDER BY count DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+
+    const results = await this.interactionRepository.manager.query(
+      query,
+      params,
+    );
+
+    return results.map((row: any) => ({
+      value: row.value,
+      linkTitle: row.link_title,
+      linkUrl: row.link_url,
+      count: row.count,
+      percentage: parseFloat(row.percentage),
+    }));
+  }
+
+  private async getDimensionTotal(
+    cte: string,
+    params: any[],
+    dimension: string,
+  ): Promise<number> {
+    const query = `
+      ${cte}
+      SELECT COUNT(DISTINCT ${dimension})::int as total
+      FROM filtered_interactions
+      WHERE ${dimension} IS NOT NULL AND ${dimension} != ''
+    `;
+
+    const result = await this.interactionRepository.manager.query(
+      query,
+      params,
+    );
+
+    return result[0]?.total || 0;
   }
 }

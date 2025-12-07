@@ -1,7 +1,9 @@
 import {
   Controller,
   Get,
+  Post,
   Query,
+  Body,
   Req,
   Res,
   BadRequestException,
@@ -10,6 +12,7 @@ import { Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { AnalyticsService } from './analytics.service';
 import { AnalyticsQuery } from './dto/analytics-query.dto';
+import { DimensionQuery } from './dto/dimension-query.dto';
 import { logger } from '../utils/logger';
 
 interface AuthenticatedRequest extends Request {
@@ -54,6 +57,9 @@ export class AnalyticsController {
           utmSource: queryParams.utmSource,
           utmMedium: queryParams.utmMedium,
           utmCampaign: queryParams.utmCampaign,
+          utmTerm: queryParams.utmTerm,
+          utmContent: queryParams.utmContent,
+          resolvedUrl: queryParams.resolvedUrl,
         },
         options: {
           topN: queryParams.topN ? parseInt(queryParams.topN) : 10,
@@ -107,6 +113,101 @@ export class AnalyticsController {
       } else {
         res.status(500).json({
           message: error.message || 'Failed to retrieve analytics',
+        });
+      }
+    }
+  }
+
+  @Throttle({ default: { limit: 20, ttl: 5000 } })
+  @Post('breakdown')
+  async getDimensionBreakdown(
+    @Body() body: Record<string, any>,
+    @Req() req: AuthenticatedRequest,
+    @Res() res: Response,
+  ): Promise<void> {
+    try {
+      logger.info('Dimension breakdown requested', {
+        projectId: body.projectId,
+        dimension: body.dimension,
+        userId: req.user?.userId,
+      });
+
+      // Parse request body
+      const query: DimensionQuery = {
+        projectId: body.projectId,
+        dimension: body.dimension,
+        startDate: new Date(body.startDate),
+        endDate: new Date(body.endDate),
+        timezone: body.timezone || 'UTC',
+        filters: {
+          linkId: body.linkId,
+          destination: body.destination,
+          linkType: body.linkType as 'web' | 'deep' | undefined,
+          country: body.country,
+          city: body.city,
+          device: body.device,
+          os: body.os,
+          browser: body.browser,
+          referer: body.referer,
+          utmSource: body.utmSource,
+          utmMedium: body.utmMedium,
+          utmCampaign: body.utmCampaign,
+          utmTerm: body.utmTerm,
+          utmContent: body.utmContent,
+          resolvedUrl: body.resolvedUrl,
+        },
+        limit: body.limit ? parseInt(body.limit) : 50,
+        offset: body.offset ? parseInt(body.offset) : 0,
+      };
+
+      // Validate required params
+      if (!query.projectId || !query.dimension || !query.startDate || !query.endDate) {
+        res.status(400).json({
+          message: 'projectId, dimension, startDate, and endDate are required',
+        });
+        return;
+      }
+
+      // Validate user has access to project
+      const hasAccess = await this.analyticsService.validateProjectAccess(
+        query.projectId,
+        req.user?.userId || '',
+      );
+
+      if (!hasAccess) {
+        res.status(403).json({ message: 'Access denied' });
+        return;
+      }
+
+      // Validate date range
+      if (query.startDate >= query.endDate) {
+        res.status(400).json({ message: 'startDate must be before endDate' });
+        return;
+      }
+
+      // Execute dimension breakdown query
+      const breakdown = await this.analyticsService.getDimensionBreakdown(query);
+
+      logger.info('Dimension breakdown completed', {
+        projectId: query.projectId,
+        dimension: query.dimension,
+        totalItems: breakdown.pagination.total,
+      });
+
+      res.status(200).json(breakdown);
+    } catch (error) {
+      logger.error('Dimension breakdown failed', {
+        projectId: body.projectId,
+        dimension: body.dimension,
+        error: error.message,
+        stack: error.stack,
+      });
+
+      if (error instanceof BadRequestException) {
+        res.status(400).json({ message: error.message });
+      } else {
+        res.status(500).json({
+          message: error.message || 'Failed to retrieve dimension breakdown',
         });
       }
     }
